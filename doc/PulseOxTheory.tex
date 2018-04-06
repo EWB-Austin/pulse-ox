@@ -1,0 +1,203 @@
+\documentclass[11pt]{article}
+\usepackage{geometry} % see geometry.pdf on how to lay out the page. There's lots.
+\usepackage{hyperref}
+\usepackage{graphicx}
+\usepackage{gensymb}
+\usepackage[affil-it]{authblk}
+\usepackage[toc,page]{appendix}
+\usepackage{pifont}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{relsize}
+\usepackage{draftwatermark}
+\usepackage[mathscr]{eucal}
+
+\SetWatermarkText{DRAFT}
+\SetWatermarkScale{6}
+\SetWatermarkLightness{0.95}
+
+\renewcommand{\min}{\expandafter\,\operatorname*{min}}
+\renewcommand{\max}{\expandafter\,\operatorname*{max}}
+
+% \geometry{letter} % or letter or a5paper or ... etc
+% \geometry{landscape} % rotated page geometry
+
+% See the ``Article customise'' template for come common customisations
+
+\title{An Explanation of Calibration-Free Pulse Oximetry}
+\author{Robert L. Read
+  \thanks{read.robert@gmail.com}
+}
+\affil{Founder, Public Invention, an educational non-profit.}
+
+
+\date{\today}
+
+%%% BEGIN DOCUMENT
+\begin{document}
+
+\maketitle
+
+%% \tableofcontents
+
+\section{Introduction}
+
+This is an attempt to clarify the ideas presented by Chugh and Kaur\cite{ChughAndKaur2015}.
+
+A valuble resource for understanding pulse oximetry in general is available at HowEquipmentWorks.com\cite{howPulseOx}.
+
+The EWB-Austin Instrumentation group is hoping to teach the world how to construct a practical pulse oximeter inexpensively to provide
+the medical benefits of pulse oximetry to parts of the world where it is not presently widespread. To do this, it must be understandable
+and inexpensive.
+
+We have breadboarded simple equipment and analyzed signals with an Arudino Uno, constituting a very simple pulse oximeter.
+
+Chugh and Kaur\cite{ChughAndKaur2015} have presented a theoretical approach to constructing a pulse oximeter that does not require calibration.
+If a pulse oximeter could be made withot calibration, this would be a large advantage for anyone in a developing country attempting to construct
+and use one correctly.
+
+\section{Review of Chugh and Kaur}
+
+Chugh and Kaur\cite{ChughAndKaur2015} paper is concise, but not perfectly clear to us upon first reading. We here work through some of the
+math they present in order to verify it and to verify that we correctly understand it.
+
+In section $1.i$, the paper restates the Beer-Lambert law\cite{wiki:Beer-Lambert} as:
+
+\begin{equation}
+  A = \ln \frac{I_o}{I_t} = \varepsilon \cdot C \cdot L
+  \end{equation}
+
+where $A$ is the absorbance, $\varepsilon$ is the wavelength-dependent extinction\footnote{Note that Wikipedia\cite{wiki:MolarAttenuation} states the IUPAC discourages the
+term {\emph extinction coefficient} in favor of {\emph molar attunation coefficient}.}
+coeffecint, $C$ is the concentration of the absorbing material present in the
+path and $L$ is the path length.
+
+
+Using Wolframalpha.com to check this, we see that this formulation
+(with a change of variable names)
+is indeed just a restatement of the Beer-Lambert law as expressed by the
+Wikipedia article\cite{wiki:Beer-Lambert}, although it seems that the computation
+of the absorbance from the incident and transmitted light via 
+logarithm should be, according to Wikipedia, base 10:
+
+\begin{equation}
+  A = \log_{10} \frac{I_o}{I_t} = \varepsilon \cdot C \cdot L
+\end{equation}
+
+
+Chugh and Kaur state the multi-species version of the Beer-Lambert law,
+and then state the absorbance at the two distinct wavelenghts at which
+oxygenated hemoglobin and deoxygenated hemoglobin differ maximally,
+which they call $RED$ and $IR$, in terms of the concentrations of
+two species (oxygenated ($C_{hbo}$) and
+deoxygenated  ($C_{hb}$)).
+
+\begin{equation}
+  A_{RED} = (\varepsilon_{hbo(red)}\cdot C_{hbo} + \varepsilon_{hb(red)}\cdot C_{hb}) \cdot L
+\end{equation}
+
+\begin{equation}
+  A_{IR} = (\varepsilon_{hbo(IR)}\cdot C_{hbo} + \varepsilon_{hb(IR)}\cdot C_{hb}) \cdot L
+\end{equation}
+
+The then define the ration $R$ as the ratio of the absorbance measured
+at these wavelengths:
+
+\begin{equation}
+  R = \frac{A_{RED}}{A_{IR}}
+  \end{equation}
+
+Using straightforward algebra, R becomes independent of the path length $L$:
+\begin{equation}
+  R = \frac{(\varepsilon_{hbo(red)}\cdot C_{hbo} + \varepsilon_{hb(red)}\cdot C_{hb})}{(\varepsilon_{hbo(IR)}\cdot C_{hbo} + \varepsilon_{hb(IR)}\cdot C_{hb})}
+\end{equation}
+
+Using straightforward algebra, they rearrange this:
+\begin{equation}
+  \label{eq:chb}
+  C_{hb} = C_{hbo} \frac{R \cdot \varepsilon_{hbo(IR)} - \varepsilon_{hbo(red)}}
+  {\varepsilon_{hb(red)} - R \cdot \varepsilon_{hb(IR)} }
+\end{equation}
+
+Note: Chugh and Kaur use slightly different variable names than used at Wikipedia.
+Possibly in this paper we will change the names yet again to make them more
+conformant to that style.
+
+They then define $SpO_2$ (periphereal oxygen saturation)
+\cite{wiki:SpO2,wiki:oxygensaturation}:
+\begin{equation}
+  \label{eq:spo2}
+  SpO_2 = \frac{C_{hbo}}{C_{hbo} + C_{hb}}
+\end{equation}
+
+Then the substitute \ref{eq:chb} into \ref{eq:spo2} and simplify:
+\begin{equation}
+  SpO_2 = \frac{100 (\varepsilon_{hbo(red)} - R \cdot \varepsilon_{hb(IR)})}
+  {(\varepsilon_{hb(red)} - \varepsilon_{hbo(red)}) + R \cdot(\varepsilon_{hbo(IR)} - \varepsilon_{hb(IR)})}
+\end{equation}
+
+The then claim that R can be computed by taking the base-10 log of that AC 
+component of the $RED$ and $IR$ signals.
+
+I believe they paper suggests this to be the the difference between the the maximum
+of the time-varying signal and the minimum of the time-varying signal.
+
+(Only an electrical engineer would understand the term ``AC component'' to
+mean the time-varying signal. I believe a better terminology is the
+``pulsative signal''. This is the part of the signal remaining when the
+unvarying signal is removed. In terms of the FFT, the very low frequencies
+of the signal may be removed (those lower than the lowest human pulse, which
+is about 0.5 Hz).)
+
+However, the absolute difference between the greatest and least
+transmittance (and inversely absorbance) is highly dependent on the
+machinery and physical body measured.
+
+Define the ``Pulsative Absorbance'' at frequency $\lambda$. 
+\begin{equation}
+  P_{\lambda} = \frac{\text{max of moving average of absorbance}}
+  {\text{min of moving average of absorbance }}
+\end{equation}
+
+Where the absorbance is computed by the definition:
+\begin{equation}
+ A_{\lambda} = \log_{10} \frac{I_{\lambda o}}{I_{\lambda t}}   
+\end{equation}
+
+If we make the reasonable assumption that $I_t$ is proportional
+to our our measured signal, then we can substitute and
+remove the dependence ont he intensity of the transmitted light:
+\begin{equation}
+  P_{\lambda} = \frac{\max{A_{\lambda}}}
+  {\min{A_{\lambda}}}
+\end{equation}
+
+Hello: 
+\begin{equation}
+  P_{\lambda} = \frac{\max{A_{\lambda}}}
+  {\min{A_{\lambda}}}
+\end{equation}
+
+
+
+
+Can it be that they mean the ratio of the pulsative part of the signal
+to the non-pulsative part of the signal?  This is the change in
+the absorbance.
+
+
+
+
+
+
+
+
+\bibliographystyle{unsrt}
+\bibliography{pulseox}
+
+
+\end{document}
+
+
+
+
