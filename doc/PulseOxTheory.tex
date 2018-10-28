@@ -56,6 +56,24 @@ Chugh and Kaur\cite{ChughAndKaur2015} have presented a theoretical approach to c
 If a pulse oximeter could be made withot calibration, this would be a large advantage for anyone in a developing country attempting to construct
 and use one correctly.
 
+Chugh and Kaur\cite{ChughAndKaur2015} cite and build upon earlier works \cite{harini2014design}, which attempts to do hardware filtering
+and equalization of the signals. Both of these works cite a seminal work by Reddy et al. \cite{reddy2009novel}.
+
+I believe all three of these papers have serious flaws. This paper is my attempt to explain this, mostly to myself. It
+is not ready to consider a critique of those papers.
+
+I assert that \cite{reddy2009novel}, while valuable, is flawed or at least very confusing in its attempt to use ``slope'' of voltage against
+time, when clearly removing time from that analysis would be clearer. The means of deriving Figure 6 in that table is either incorrect or
+not explained.
+
+Chugh and Kaur\cite{ChughAndKaur2015} cannot be correct as written, as it is clearly the case that differences in sensor sensitivities
+would affect their results, in my interpretation. Furthermore, that papers defines the quantity $R$ in equations 1, 8, and 12, in ways
+which are mutually inconsistent (unless, very confusingly, they intent R to mean different quantities in these cases.
+
+Note: Nitzan\cite{nitzan2014pulse} is much clearer, giving a similar equation for $SaO2$ 
+fundamental equation based on the standard $R$ ``ratio of ratios'', roughly matching these papers.
+
+
 \section{Review of Chugh and Kaur}
 
 Chugh and Kaur\cite{ChughAndKaur2015} paper is concise, but not perfectly clear to us upon first reading. We here work through some of the
