@@ -21,7 +21,7 @@
 // We are doing this for the purpose of building a pulse oximeter, so we are in particular interested in these
 // kinds of signals.
 
-float testFrequency = 4.0;                     // test signal frequency (Hz)
+float testFrequency = 1.0;                     // test signal frequency (Hz)
 float testAmplitude = 100;                   // test signal amplitude
 float testOffset = 100;
 
@@ -79,73 +79,79 @@ class PeakToPeak {
     return (idx-1) % NUM_SAMPLES;
   }
   // true if a dominates b (that is, a is greater and more recent.)
-  bool dominates(sample rec, sample old) {
-    return (rec.v >= old.v) && (rec.t > old.t);
+  bool dominates(bool compute_max,sample rec, sample old) {
+    return (rec.t > old.t) && (compute_max ? (rec.v >= old.v) : (rec.v <= old.v)) ;
   }
-  void input( float v ) {
-    long now = micros();                      // get current time
-    float dt = 1e-6*float(now - LastTimeUS);  // find dt
-    LastTimeUS = now;                         // save the last time
-    OldestTime = now - ((long) (WindowDurationS * 1000.0 * 1000.0));
 
+  float input_to_ext(bool compute_max,float v,long now, int *ini, int *fin,sample* ss) {
     /* Serial.println("debug"); */
     /* Serial.println(OldestTime); */
     /* Serial.println(SIZE_MAX_RING); */
 
     // Now we push the structure into our rings...
     if (SIZE_MAX_RING != 0) {
-      max_i = next_idx(max_i);
+      *ini = next_idx(*ini);
     }
-    maxs[max_i].v = v;
-    maxs[max_i].t = now;
+    ss[*ini].v = v;
+    ss[*ini].t = now;
     SIZE_MAX_RING++;
     if (SIZE_MAX_RING > NUM_SAMPLES) { // we have to drop one off the end, perhaps this should have a warning
       Serial.print( "HAD TO DROP A SAMPLE" );
-      max_f = next_idx(max_f);
+      *fin = next_idx(*fin);
       SIZE_MAX_RING--;
     }
 
     // Now we clean the rings of any values that are completely dominated....
-    // we will run over all values back ward from where we are to max_f,
+    // we will run over all values back ward from where we are to *fin,
     // removing all dominatred values...
-    int cur_max = max_i;
+    int cur_ext = *ini;
     bool reproc = false;
 
-    for(int i = max_i; i != prev_idx(max_f); i = (reproc ? i : prev_idx(i)) ) {
+    for(int i = *ini; i != prev_idx(*fin); i = (reproc ? i : prev_idx(i)) ) {
       /* Serial.print("iter: "); */
       /* Serial.println(i); */
-      /* Serial.println(max_i); */
-      /* Serial.println(max_f); */
+      /* Serial.println(*ini); */
+      /* Serial.println(*fin); */
       /* Serial.println(cur_max); */
 
       reproc = false;
-      // if maxs[i] is expired, we will drop it...
-      if (maxs[i].t < OldestTime) {
-        maxs[i] = maxs[max_f];
-        max_f = next_idx(max_f);
+      // if ss[i] is expired, we will drop it...
+      if (ss[i].t < OldestTime) {
+        ss[i] = ss[*fin];
+        *fin = next_idx(*fin);
         SIZE_MAX_RING--;
-        if (maxs[max_f].v > maxs[cur_max].v) {
-          cur_max = i;
+        if (ss[*fin].v > ss[cur_ext].v) {
+          cur_ext = i;
         }
         reproc = true;
       } else {
-        if (maxs[i].v > maxs[cur_max].v) {
-          cur_max = i;
+        if ((compute_max ? (ss[i].v > ss[cur_ext].v) : (ss[i].v < ss[cur_ext].v))) {
+          cur_ext = i;
         }
         // we only need to check the new value
-        if ((max_i != i) && dominates(maxs[max_i],maxs[i])) {
+        if ((*ini != i) && dominates(compute_max,ss[*ini],ss[i])) {
           // if i is dominated, we can drop it, so we add it to the drop list...
-          // since we have the time in order, we move max_f into this slot and increment max_f
+          // since we have the time in order, we move *fin into this slot and increment *fin
           /* Serial.println("dominated"); */
-          maxs[i] = maxs[max_f];
-          max_f = next_idx(max_f);
+          ss[i] = ss[*fin];
+          *fin = next_idx(*fin);
           SIZE_MAX_RING--;
           reproc = true;
         } 
       }
     }
   
-    Xmax = maxs[cur_max].v;
+    return ss[cur_ext].v;
+  }
+  void input( float v ) {
+    long now = micros();                      // get current time
+    float dt = 1e-6*float(now - LastTimeUS);  // find dt
+    LastTimeUS = now;                         // save the last time
+    OldestTime = now - ((long) (WindowDurationS * 1000.0 * 1000.0));
+    
+    Xmax = input_to_ext(true,v,now,&max_i,&max_f,maxs);
+    Xmin = input_to_ext(false,v,now,&min_i,&min_f,mins);
+
   }
 
   float output_max() {
@@ -347,17 +353,32 @@ void plot_signal() {
     sensorValue = analogRead(sensorPin);
     s = sensorValue * 5.0 / 1000.0;
 
-    peakToPeak.input(s);
+
   Serial.print(s);
-  Serial.print(" ");
+  /* Low-pass-signal */
   float sl = testDirectLowPass(s);
+  Serial.print(" ");
   Serial.print(sl);
+  /* De-biased signal */
   float sh = s - sl;
   Serial.print(" ");
   Serial.print(sh);
+  /* Maximum of signal */
+  peakToPeak.input(sh);
   float max = peakToPeak.output_max();
+
   Serial.print(" ");
   Serial.print(max);
+
+  float min = peakToPeak.output_min();
+  Serial.print(" ");
+  Serial.print(min);
+
+  // Now this is quite important...R0 is the ratio of the peak-to-peak value to the DC value...
+  float R0 = (max - min) / sl;
+  Serial.print(" ");
+  Serial.print(R0);
+
   Serial.println();
 }
 
