@@ -206,6 +206,133 @@ the absorbance.
 
 
 
+\section{Finding Peak-to-Peak Values: A novel algorithm}
+
+Using this approach, a fundamental need it so measure the peak-to-peak difference of
+the time-varying part of the signal. This can be accomplished by keeping a running
+maximum and a running minimum.
+
+On October 28th, I had coded an approach to this that works.  I was not
+able to find a good algorithm for the Aduino.
+
+Additional, I believe I have discovered a new algorithm that will
+be effective for the Arduino, with a constant running time and
+extremely good performance with a constant amount of space.
+
+I have not yet coded this algorithm. This is my attempt to record my thoughts.
+
+\subsection{DROPBORINGLIN: A fast constant space algorithm for the running maximum of a sampled signal }
+
+Douglas \cite{douglas1996running} provides a good algorithm {\em MAXLIST} for computing a
+running maximum. This algorithm builds upon his observation that one may
+keep an ordered list of potential maxima.
+
+In order to produce a constant space algorithm with good error
+characteristics, we define {\em DROPBORINGLIN} whose fundamental insight
+is that we can define a ring buffer of constant size to keep the samples.
+If the signal is not monotone decreasing, the observation {\em MAXLIST} observation
+tells us that only a small number of samples need be stored, as they tend
+to be higher than, and therefore obviate, older samples.
+
+However, if the signal is monotone decreasing, to be perfect we might
+have to keep every sample, which cannot be done in small space.
+
+Therefore we observe that the error produced by dropping an individual
+sample varies, and is easily computed. If we ignore the fact that
+we are dealing with  digital signal processing series which is probably
+a sampling of a smooth waveform, we can compute this area as two right triangles.
+
+However, we can do even better if we assume that our time series is coming
+from a samples series of limited frequency, and that therefore if the window
+slides over a sample in time the maximum should not abruptly change, but is
+better appxoimated by a linear interpolation.
+
+Each of the samples which is not either the newest or the oldest can
+then be thought of as giving us information about how far away
+the signal is from a linear interpolation between the preceding and
+succeeding samples. Some samples are more surpsising than others,
+in that they are further away from this linear interpolation. We
+propose that the best way to compute the maximum in limited space
+is to drop the sample that is the ``most boring''. Since this
+is easily computed for each sample, we have a simple algorithm that
+operates in constant space. When the signal is monotone decreasing,
+the algorithm may be erroneous, but will only be erroneous by
+an amount which we can can bound and minimize.
+
+This algorithm is particularly well-suited to implementation on an Arduino,
+where memory is limited.
+
+\begin{figure}
+  \includegraphics[width=\linewidth]{DROPBORINGLIN.png}
+  \caption{A decreasing sampled signal.}
+  \label{fig:boring}
+\end{figure}
+
+If we examine \ref{fig:boring} and imagine that there is a
+time series which is sampled at points $A,B,C,D$, and $E$.
+The colored triangles represent the ``error'' that
+occurs if we compute the window ending between $A$ and $E$,
+assuming that signal does not rise after that. It is
+visually apparent that $B$ is a rather boring point compared
+to $D$ in that the error that is produced by droppoing point
+$B$ is much smaller than the error produced by dropping point $D$.
+
+This observation is the heart of the algorithm: if the signal
+never rises so that you run out of space, it is better to drop
+the boring points.
+
+A good data structure for this algorithm is a ring buffer
+containing $R$ ``samples'', which contian both a value and a time,
+and a ``client data field'' which contains the boringness.
+By the observation of $MAXLIST$ we observe that
+it behooves us to maintain the invariant that the elemets of this
+buffer are ordered with increasing time and decreasing value.
+
+The fundamental operation of a running algorithm is the addition
+of a sample more recent than any in our ring, which we call
+simple $INPUT$.
+
+The algorithm $INPUT$ takes a current ring and a new sample $(v,t)$.
+It returns an approximation to the maximum of the signal in a window of
+duration $d$.
+
+\begin{enumerate}
+\item If $t-d$ is greater than the penultimate sample,
+  drop the last sample from the ring.
+\item Remove all elements from the ring which have a value
+  less than $v$.
+\item If the ring is full, drop the most boring element,
+  computed from the head. Recompute the boringness of elements
+  adjacent to the dropped element.
+\item Add $(v,t)$ to the head of the ring.
+\item If the ring contains 3 elements, assign a boringness
+  to the element next to the head.
+\item Return the linear interpolation of $(t-d)$ based
+  on the last sample and the penultimate sample.
+\end{enumerate}
+
+Finding the most boring element may be done in constant time
+by keeping a priority queue indexing the ring.
+
+The function $BORING$ assigns a real number to an
+element in the ring $B$ if it has a successor $C$ and predecssor $A$
+in the ring. It takes the index of the element in the ring
+and the ring as its argument. A small number is
+considered ``more boring''. This is the area of
+the triangle
+
+$BORING(B,R)$:
+
+\begin{enumerate}
+\item Let $D = (A.t,C.v)$ and $E = (C.t,A.v)$. $ACDE$ is then
+  a rectangle. Let $M$ be one-half the area of this rectangle.
+\item Let $x$ = (B.t - D.t)(B.v - D.v)$.
+  \tiem Return $M$ minus the area of the rectangle $BD$,
+  which is $(B.v - D.v)(B.t-D.t)$  and the
+  triangle $(B.t - A.t)(A.v-B.v))/2$, and
+  the trinagle $(C.t-B.t)(B.v-C.v)/2$.
+  \end{enumerate}
+
 
 
 
